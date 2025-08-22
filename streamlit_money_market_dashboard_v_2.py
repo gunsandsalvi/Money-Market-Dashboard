@@ -290,10 +290,10 @@ else:
 
 # Scale heuristics -> 0-100
 composite_scaled = int(np.clip((composite_simple / 3.0) * 100, 0, 100))
-pc1_latest = pca_series.dropna()
-pc1_latest_val = float(npc1_latest.iloc[-1]) if not npc1_latest.empty else 0.0
-if not npc1_latest.empty and np.std(npc1_latest) != 0:
-    pc1_z = (pc1_latest_val - np.mean(npc1_latest)) / np.std(npc1_latest)
+pc1_nonempty = pca_series.dropna()
+pc1_latest_val = float(pc1_nonempty.iloc[-1]) if not pc1_nonempty.empty else 0.0
+if not pc1_nonempty.empty and np.std(pc1_nonempty) != 0:
+    pc1_z = (pc1_latest_val - np.mean(pc1_nonempty)) / np.std(pc1_nonempty)
     pc1_scaled = int(np.clip(pc1_z * 20 + 50, 0, 100))
 else:
     pc1_scaled = 50
