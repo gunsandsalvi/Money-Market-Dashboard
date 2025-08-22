@@ -349,9 +349,10 @@ if st.button("Download normalized z-scores (CSV)"):
     csv = z.reset_index().rename(columns={'index':'date'}).to_csv(index=False).encode('utf-8')
     st.download_button(label='Download CSV', data=csv, file_name='z_scores.csv', mime='text/csv')
 
-st.markdown("**Integration templates:**
+st.markdown("""**Integration templates:**
 - For Bloomberg: implement blpapi client and load authorization from Streamlit Secrets.
 - For Markit/ICE: use REST endpoints and map JSON to (date,value) timeseries.
+- For WebSockets: build a background ingestion service and write timeseries to a database / object storage, then the app pulls aggregated series.)""") timeseries.
 - For WebSockets: build a background ingestion service and write timeseries to a database / object storage, then the app pulls aggregated series.)")
 
 st.markdown("---")
