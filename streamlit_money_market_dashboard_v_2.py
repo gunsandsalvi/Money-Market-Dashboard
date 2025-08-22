@@ -520,4 +520,147 @@ def show_gauge_plotly(col, label, value):
     color = color_for_score(value)
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
-      
+        value=value,
+        domain={'x':[0,1],'y':[0,1]},
+        title={'text': label},
+        gauge={'axis': {'range':[0,100]},
+               'bar': {'color': color},
+               'steps':[{'range':[0,40],'color':'#e6f9ed'},{'range':[40,70],'color':'#fff7e0'},{'range':[70,100],'color':'#ffecec'}]}
+    ))
+    fig.update_layout(height=220, margin=dict(l=10,r=10,t=30,b=10))
+    col.plotly_chart(fig, use_container_width=True)
+
+def show_metric_fallback(col, label, value):
+    col.markdown(f"**{label}**")
+    col.metric("", f"{value}")
+    col.markdown(f"<div style='height:8px;background:{color_for_score(value)};border-radius:6px'></div>", unsafe_allow_html=True)
+
+if PLOTLY:
+    show_gauge_plotly(c1, "Funding Stress (0-100)", fund_score)
+    show_gauge_plotly(c2, "Credit Stress (0-100)", cred_score)
+    show_gauge_plotly(c3, "Liquidity Stress (0-100)", liq_score)
+    show_gauge_plotly(c4, "Combined Stress (0-100)", combined_score)
+else:
+    show_metric_fallback(c1, "Funding Stress (0-100)", fund_score)
+    show_metric_fallback(c2, "Credit Stress (0-100)", cred_score)
+    show_metric_fallback(c3, "Liquidity Stress (0-100)", liq_score)
+    show_metric_fallback(c4, "Combined Stress (0-100)", combined_score)
+
+st.markdown("---")
+
+# ----------------------------
+# Recent charts clipped to horizon
+# ----------------------------
+end_dt = df.index.max()
+start_dt = end_dt - pd.Timedelta(days=h_days)
+df_recent = df.loc[df.index >= start_dt]
+
+st.header("Recent indicators (focused view)")
+
+left, right = st.columns([2,1])
+with left:
+    st.subheader("Funding indicators")
+    funding_cols_present = [c for c in FUNDING_COLS if c in df_recent.columns]
+    df_fund_plot = df_recent[funding_cols_present].rename(columns=lambda x: FRIENDLY.get(x, x))
+    if not df_fund_plot.empty:
+        # plot using helper
+        if PLOTLY:
+            fig = go.Figure()
+            for col in df_fund_plot.columns:
+                fig.add_trace(go.Scatter(x=df_fund_plot.index, y=df_fund_plot[col], name=col))
+            fig.update_layout(title=f"Funding Rates & Spreads — last {horizon}", height=360, margin=dict(l=10,r=10,t=30,b=20))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.line_chart(df_fund_plot)
+    else:
+        st.info("No funding series available for this horizon.")
+
+    st.subheader("Credit indicators")
+    cred_cols_present = [c for c in CREDIT_COLS if c in df_recent.columns]
+    df_cred_plot = df_recent[cred_cols_present].rename(columns=lambda x: FRIENDLY.get(x, x))
+    if not df_cred_plot.empty:
+        if PLOTLY:
+            fig = go.Figure()
+            for col in df_cred_plot.columns:
+                fig.add_trace(go.Scatter(x=df_cred_plot.index, y=df_cred_plot[col], name=col))
+            fig.update_layout(title=f"Credit Spreads — last {horizon}", height=300, margin=dict(l=10,r=10,t=30,b=20))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.line_chart(df_cred_plot)
+    else:
+        st.info("No credit series available for this horizon.")
+
+with right:
+    st.subheader("Liquidity indicators")
+    liq_cols_present = [c for c in LIQUIDITY_COLS if c in df_recent.columns]
+    df_liq_plot = df_recent[liq_cols_present].rename(columns=lambda x: FRIENDLY.get(x, x))
+    if not df_liq_plot.empty:
+        if PLOTLY:
+            fig = go.Figure()
+            for col in df_liq_plot.columns:
+                fig.add_trace(go.Scatter(x=df_liq_plot.index, y=df_liq_plot[col], name=col))
+            fig.update_layout(title=f"Liquidity Measures — last {horizon}", height=720, margin=dict(l=10,r=10,t=30,b=20))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.line_chart(df_liq_plot)
+    else:
+        st.info("No liquidity series available for this horizon.")
+
+# ----------------------------
+# Heatmap of z-scores (recent)
+# ----------------------------
+st.markdown("---")
+st.header("Z-score heatmap (recent, grouped)")
+
+heat_window = min(len(z), 120)
+z_recent = z.tail(heat_window)
+rows = []
+for group in (FUNDING_COLS, CREDIT_COLS, LIQUIDITY_COLS):
+    rows.extend([c for c in group if c in z_recent.columns])
+if rows:
+    heat_df = z_recent[rows].T
+    heat_df.index = [FRIENDLY.get(r,r) for r in heat_df.index]
+    if PLOTLY:
+        fig = px.imshow(heat_df, aspect='auto', labels=dict(x='Date', y='Indicator', color='z-score'), origin='lower')
+        fig.update_layout(height=360, margin=dict(l=10,r=10,t=30,b=20))
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.dataframe(heat_df)
+else:
+    st.info("Not enough z-score series to display heatmap.")
+
+# ----------------------------
+# Alerts (recent breaches)
+# ----------------------------
+st.markdown("---")
+st.header("Alerts — recent z-score breaches (|z| ≥ 2)")
+
+alerts = []
+if not z.empty:
+    latest = z.iloc[-1]
+    for c in latest.index:
+        v = latest[c]
+        if pd.notna(v) and abs(v) >= 2.0:
+            cat = "Funding" if c in FUNDING_COLS else "Credit" if c in CREDIT_COLS else "Liquidity" if c in LIQUIDITY_COLS else "Other"
+            alerts.append((c, v, cat))
+if alerts:
+    for c,v,cat in alerts:
+        label = FRIENDLY.get(c, c)
+        emoji = "🔴" if abs(v) >= 3.0 else "⚠️"
+        st.error(f"{emoji} {label} — {cat} — z = {v:.2f}")
+else:
+    st.success("No recent z-score breaches (|z| ≥ 2).")
+
+# ----------------------------
+# Exports
+# ----------------------------
+st.markdown("---")
+st.header("Export data")
+if st.button("Download latest raw indicators CSV"):
+    tmp = df.reset_index().rename(columns={'index':'date'})
+    st.download_button("Download indicators CSV", tmp.to_csv(index=False).encode('utf-8'), file_name='indicators_latest.csv', mime='text/csv')
+if st.button("Download z-scores CSV"):
+    tmp2 = z.reset_index().rename(columns={'index':'date'})
+    st.download_button("Download z-scores CSV", tmp2.to_csv(index=False).encode('utf-8'), file_name='z_scores.csv', mime='text/csv')
+
+st.caption("Notes: The app dynamically scrapes public sources (NY Fed, OFR, Fed DDP) when possible and uses FRED for structured series. If a scraper fails, upload the CSV manually. Caching TTL for scrapers is 6 hours.")
