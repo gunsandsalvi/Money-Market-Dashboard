@@ -294,10 +294,10 @@ else:
 # Scale composites to 0-100 (heuristic)
 composite_scaled = int(np.clip((composite_simple / 3.0) * 100, 0, 100))
 pc1 = pca_series.dropna()
-pc1_latest = npc1.iloc[-1] if not npc1.empty else 0.0
+pc1_latest = pc1.iloc[-1] if not pc1.empty else 0.0
 # normalize pc1 to 0-100 using z-score then map
-if not npc1.empty and np.std(npc1) != 0:
-    pc1_z = (pc1_latest - np.mean(npc1)) / np.std(npc1)
+if not pc1.empty and np.std(pc1) != 0:
+    pc1_z = (pc1_latest - np.mean(pc1)) / np.std(pc1)
     pc1_scaled = int(np.clip(pc1_z * 20 + 50, 0, 100))
 else:
     pc1_scaled = 50
