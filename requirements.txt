@@ -1,6 +1,12 @@
-streamlit>=1.20
-pandas>=1.5
+streamlit>=1.32
+pandas>=2.0
 numpy>=1.24
-scikit-learn>=1.0
-fredapi>=0.4.0
-plotly>=5.0
+requests>=2.31
+beautifulsoup4>=4.12
+fredapi>=0.5.1
+plotly>=5.20
+scikit-learn>=1.4
+
+# Excel parsing (NY Fed / Fed DDP files sometimes are xls/xlsx)
+openpyxl>=3.1
+xlrd>=2.0
