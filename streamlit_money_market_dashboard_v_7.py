@@ -127,12 +127,31 @@ def parse_ofr_series_json(json_blob: dict, series_id_hint: Optional[str] = None)
 
 
 def safe_union_index(series_map: Dict[str, pd.Series]) -> pd.DatetimeIndex:
+    """
+    Return a business-day index spanning the union of dates present in the provided series map.
+    Compatible across pandas versions: builds a set of all dates and creates a bdate_range from min->max.
+    """
+    # keep only real, non-empty series
     valid = [s for s in series_map.values() if s is not None and not s.empty]
     if not valid:
         return pd.DatetimeIndex([])
-    all_dates = pd.Index([]).union_many([s.index for s in valid])
+
+    # Build the union of all dates robustly (works on all pandas versions)
+    all_dates_set = set()
+    for s in valid:
+        # ensure index values are Timestamp-like
+        try:
+            all_dates_set.update(pd.to_datetime(s.index).tolist())
+        except Exception:
+            all_dates_set.update(list(s.index))
+
+    if not all_dates_set:
+        return pd.DatetimeIndex([])
+
+    all_dates = pd.DatetimeIndex(sorted(all_dates_set))
     bidx = pd.bdate_range(start=all_dates.min(), end=all_dates.max())
     return bidx
+
 
 # -------------------------
 # Inputs / sidebar
