@@ -396,7 +396,23 @@ if not series:
     st.stop()
 
 # Align to business days across union of dates
-all_dates = sorted({d for s in series.values() for d in s.index})
+# Only keep successful series (drop None)
+clean_series = {k: s for k, s in series.items() if s is not None and not s.empty}
+
+if not clean_series:
+    st.error("No data available from scrapers or FRED — please check sources.")
+    st.stop()
+
+# Align to business days across union of dates
+all_dates = sorted({d for s in clean_series.values() for d in s.index})
+start, end = all_dates[0], all_dates[-1]
+bidx = pd.bdate_range(start=start, end=end)
+
+# Reindex all series
+for k, s in clean_series.items():
+    clean_series[k] = s.reindex(bidx)
+
+series = clean_series
 start, end = all_dates[0], all_dates[-1]
 bidx = pd.bdate_range(start=start, end=end)
 for k in list(series.keys()):
